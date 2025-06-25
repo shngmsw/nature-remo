@@ -36,7 +36,7 @@ This guide covers deploying the Nature Remo monitoring application to Vercel wit
    - Project URL (starts with `https://`)
    - Anon public key (starts with `eyJ`)
 
-## Step 2: Vercel Setup
+## Step 2: Vercel Setup (Recommended Method)
 
 ### 2.1 Connect GitHub Repository
 
@@ -68,43 +68,28 @@ In your Vercel project settings:
 
 ## Step 3: GitHub Actions Setup (Optional)
 
-For automatic deployments on code changes:
+The repository includes a CI/CD pipeline that runs tests and builds on every push. For automatic deployments, use Vercel's built-in GitHub integration instead of manual GitHub Actions.
 
-### 3.1 Get Vercel Tokens
+### 3.1 Enable Vercel GitHub Integration
 
-1. Install Vercel CLI: `npm i -g vercel`
-2. Run: `vercel login`
-3. Run: `vercel link` in your project directory
-4. Get tokens from Vercel dashboard:
-   - Go to "Settings" → "Tokens"
-   - Create a new token
+1. In Vercel dashboard, go to your project
+2. Go to "Settings" → "Git"
+3. Ensure "Deploy Hooks" are enabled
+4. Vercel will automatically deploy on every push to main branch
 
-### 3.2 Configure GitHub Secrets
+### 3.2 GitHub Secrets (Only if using manual deployment)
 
-In your GitHub repository:
+If you want to use manual GitHub Actions deployment, add these secrets to your GitHub repository:
 
 1. Go to "Settings" → "Secrets and variables" → "Actions"
 2. Add the following secrets:
 
 | Name | Value |
 |------|-------|
-| `VERCEL_TOKEN` | Your Vercel token |
-| `VERCEL_ORG_ID` | Your Vercel organization ID |
-| `VERCEL_PROJECT_ID` | Your Vercel project ID |
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
 
-### 3.3 Get Vercel IDs
-
-Run these commands to get your Vercel IDs:
-
-```bash
-# Get org ID
-vercel orgs ls
-
-# Get project ID
-vercel projects ls
-```
+**Note:** The current workflow only runs tests and builds. For deployment, use Vercel's automatic deployment feature.
 
 ## Step 4: Nature Remo Setup
 
@@ -159,6 +144,11 @@ Add the token to your Vercel environment variables as `NATURE_REMO_ACCESS_TOKEN`
 4. **Build Failures**
    - Check Vercel build logs
    - Ensure all dependencies are in package.json
+
+5. **GitHub Actions Failures**
+   - The current workflow only runs tests
+   - For deployment, use Vercel's automatic deployment
+   - Check if required secrets are set
 
 ### Debug Commands
 
