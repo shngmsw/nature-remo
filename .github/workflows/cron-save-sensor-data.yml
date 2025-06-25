@@ -1,0 +1,14 @@
+name: Save Nature Remo Data to Supabase (Every 5 min)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  save-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call save-sensor-data API
+        run: |
+          curl -X POST "${{ secrets.SAVE_SENSOR_DATA_URL }}" 
