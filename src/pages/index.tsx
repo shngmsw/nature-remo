@@ -1,117 +1,470 @@
-import Head from "next/head";
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-import styles from "@/styles/Home.module.css";
+import Head from 'next/head';
+import { useState, useEffect } from 'react';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+} from 'chart.js';
+import 'chartjs-adapter-date-fns';
+import Link from 'next/link';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale
+);
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+type SensorEvent = {
+  val: number;
+  created_at: string;
+};
 
-export default function Home() {
+type Device = {
+  id: string;
+  name: string;
+  newest_events: {
+    te?: SensorEvent; // temperature
+    hu?: SensorEvent; // humidity
+    il?: SensorEvent; // illuminance
+    mo?: SensorEvent; // movement
+  };
+};
+
+type ChartData = {
+  labels: Date[];
+  datasets: {
+    label: string;
+    data: number[];
+    borderColor: string;
+    backgroundColor: string;
+  }[];
+};
+
+const Home = () => {
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [temperatureData, setTemperatureData] = useState<ChartData>({
+    labels: [],
+    datasets: [
+      {
+        label: 'Temperature (°C)',
+        data: [],
+        borderColor: 'rgb(255, 99, 132)',
+        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+      },
+    ],
+  });
+  const [humidityData, setHumidityData] = useState<ChartData>({
+    labels: [],
+    datasets: [
+      {
+        label: 'Humidity (%)',
+        data: [],
+        borderColor: 'rgb(54, 162, 235)',
+        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+      },
+    ],
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/temperature');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to fetch data');
+      }
+      const data: Device[] = await res.json();
+      
+      setDevices(data);
+      
+      if (data.length > 0 && !selectedDevice) {
+        setSelectedDevice(data[0].id);
+      }
+
+      if (selectedDevice) {
+        const device = data.find(d => d.id === selectedDevice);
+        if (device) {
+          updateChartData(device);
+        }
+      }
+
+      setLastUpdated(new Date().toLocaleTimeString());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateChartData = (device: Device) => {
+    const time = new Date();
+    
+    // Temperature data update
+    if (device.newest_events?.te) {
+      const { val } = device.newest_events.te;
+      setTemperatureData((prevData) => {
+        const newLabels = [...prevData.labels, time];
+        const newData = [...prevData.datasets[0].data, val];
+
+        // グラフの表示件数を直近30件に制限
+        if (newLabels.length > 30) {
+          newLabels.shift();
+          newData.shift();
+        }
+
+        return {
+          ...prevData,
+          labels: newLabels,
+          datasets: [
+            {
+              ...prevData.datasets[0],
+              data: newData,
+            },
+          ],
+        };
+      });
+    }
+
+    // Humidity data update
+    if (device.newest_events?.hu) {
+      const { val } = device.newest_events.hu;
+      setHumidityData((prevData) => {
+        const newLabels = [...prevData.labels, time];
+        const newData = [...prevData.datasets[0].data, val];
+
+        // グラフの表示件数を直近30件に制限
+        if (newLabels.length > 30) {
+          newLabels.shift();
+          newData.shift();
+        }
+
+        return {
+          ...prevData,
+          labels: newLabels,
+          datasets: [
+            {
+              ...prevData.datasets[0],
+              data: newData,
+            },
+          ],
+        };
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 5 * 60 * 1000); // 5分ごとに更新
+    return () => clearInterval(interval);
+  }, [selectedDevice]);
+
+  const handleDeviceChange = (deviceId: string) => {
+    setSelectedDevice(deviceId);
+    // Reset chart data when switching devices
+    setTemperatureData({
+      labels: [],
+      datasets: [
+        {
+          label: 'Temperature (°C)',
+          data: [],
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.5)',
+        },
+      ],
+    });
+    setHumidityData({
+      labels: [],
+      datasets: [
+        {
+          label: 'Humidity (%)',
+          data: [],
+          borderColor: 'rgb(54, 162, 235)',
+          backgroundColor: 'rgba(54, 162, 235, 0.5)',
+        },
+      ],
+    });
+  };
+
+  const selectedDeviceData = devices.find(d => d.id === selectedDevice);
+
   return (
-    <>
+    <div>
       <Head>
-        <title>Create Next App</title>
-        <meta name="description" content="Generated by create next app" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Nature Remo Monitor</title>
+        <meta name="description" content="Nature Remo Temperature and Humidity Monitor" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div
-        className={`${styles.page} ${geistSans.variable} ${geistMono.variable}`}
-      >
-        <main className={styles.main}>
-          <Image
-            className={styles.logo}
-            src="/next.svg"
-            alt="Next.js logo"
-            width={180}
-            height={38}
-            priority
-          />
-          <ol>
-            <li>
-              Get started by editing <code>src/pages/index.tsx</code>.
-            </li>
-            <li>Save and see your changes instantly.</li>
-          </ol>
 
-          <div className={styles.ctas}>
-            <a
-              className={styles.primary}
-              href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
+      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', color: '#333' }}>
+            🌡️ Nature Remo Monitor
+          </h1>
+          <p style={{ color: '#666', fontSize: '1.1rem' }}>
+            Real-time temperature and humidity monitoring
+          </p>
+          <Link href="/settings" style={{
+            display: 'inline-block',
+            marginTop: '1rem',
+            padding: '0.5rem 1rem',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            borderRadius: '4px',
+            textDecoration: 'none',
+            fontSize: '0.9rem',
+            transition: 'background-color 0.2s'
+          }}>
+            ⚙️ Settings
+          </Link>
+        </div>
+
+        {/* Device Selection */}
+        {devices.length > 1 && (
+          <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+            <label htmlFor="device-select" style={{ marginRight: '1rem', fontWeight: 'bold' }}>
+              Select Device:
+            </label>
+            <select
+              id="device-select"
+              value={selectedDevice}
+              onChange={(e) => handleDeviceChange(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                fontSize: '1rem',
+                minWidth: '200px'
+              }}
             >
-              <Image
-                className={styles.logo}
-                src="/vercel.svg"
-                alt="Vercel logomark"
-                width={20}
-                height={20}
-              />
-              Deploy now
-            </a>
-            <a
-              href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.secondary}
-            >
-              Read our docs
-            </a>
+              {devices.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </main>
-        <footer className={styles.footer}>
-          <a
-            href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/file.svg"
-              alt="File icon"
-              width={16}
-              height={16}
-            />
-            Learn
-          </a>
-          <a
-            href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/window.svg"
-              alt="Window icon"
-              width={16}
-              height={16}
-            />
-            Examples
-          </a>
-          <a
-            href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              aria-hidden
-              src="/globe.svg"
-              alt="Globe icon"
-              width={16}
-              height={16}
-            />
-            Go to nextjs.org →
-          </a>
-        </footer>
-      </div>
-    </>
+        )}
+
+        {/* Status Information */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '2rem',
+          padding: '1rem',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #e9ecef'
+        }}>
+          <div>
+            <strong>Last updated:</strong> {lastUpdated || 'Never'}
+          </div>
+          <div>
+            <button
+              onClick={fetchData}
+              disabled={isLoading}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.6 : 1
+              }}
+            >
+              {isLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: '#f8d7da', 
+            color: '#721c24', 
+            borderRadius: '4px', 
+            marginBottom: '2rem',
+            border: '1px solid #f5c6cb'
+          }}>
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
+        {/* Current Values Display */}
+        {selectedDeviceData && (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            {selectedDeviceData.newest_events?.te && (
+              <div style={{ 
+                padding: '1.5rem', 
+                backgroundColor: '#fff3cd', 
+                borderRadius: '8px',
+                border: '1px solid #ffeaa7',
+                textAlign: 'center'
+              }}>
+                <h3 style={{ margin: '0 0 0.5rem 0', color: '#856404' }}>🌡️ Temperature</h3>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#856404' }}>
+                  {selectedDeviceData.newest_events.te.val}°C
+                </div>
+              </div>
+            )}
+            {selectedDeviceData.newest_events?.hu && (
+              <div style={{ 
+                padding: '1.5rem', 
+                backgroundColor: '#d1ecf1', 
+                borderRadius: '8px',
+                border: '1px solid #bee5eb',
+                textAlign: 'center'
+              }}>
+                <h3 style={{ margin: '0 0 0.5rem 0', color: '#0c5460' }}>💧 Humidity</h3>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#0c5460' }}>
+                  {selectedDeviceData.newest_events.hu.val}%
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Charts */}
+        <div style={{ display: 'grid', gap: '2rem' }}>
+          {/* Temperature Chart */}
+          {temperatureData.datasets[0].data.length > 0 && (
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '1.5rem', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: '1px solid #e9ecef'
+            }}>
+              <h2 style={{ marginBottom: '1rem', color: '#333' }}>Temperature History</h2>
+              <Line
+                data={temperatureData}
+                options={{
+                  scales: {
+                    x: {
+                      type: 'time',
+                      time: {
+                        unit: 'minute',
+                        tooltipFormat: 'PPpp',
+                      },
+                      title: {
+                        display: true,
+                        text: 'Time',
+                      },
+                    },
+                    y: {
+                      title: {
+                        display: true,
+                        text: 'Temperature (°C)',
+                      },
+                    },
+                  },
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                    },
+                    title: {
+                      display: true,
+                      text: 'Temperature (Last 30 entries)',
+                    },
+                  },
+                }}
+              />
+            </div>
+          )}
+
+          {/* Humidity Chart */}
+          {humidityData.datasets[0].data.length > 0 && (
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '1.5rem', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              border: '1px solid #e9ecef'
+            }}>
+              <h2 style={{ marginBottom: '1rem', color: '#333' }}>Humidity History</h2>
+              <Line
+                data={humidityData}
+                options={{
+                  scales: {
+                    x: {
+                      type: 'time',
+                      time: {
+                        unit: 'minute',
+                        tooltipFormat: 'PPpp',
+                      },
+                      title: {
+                        display: true,
+                        text: 'Time',
+                      },
+                    },
+                    y: {
+                      title: {
+                        display: true,
+                        text: 'Humidity (%)',
+                      },
+                      min: 0,
+                      max: 100,
+                    },
+                  },
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                    },
+                    title: {
+                      display: true,
+                      text: 'Humidity (Last 30 entries)',
+                    },
+                  },
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* No Data Message */}
+        {!isLoading && !error && (!selectedDeviceData?.newest_events?.te && !selectedDeviceData?.newest_events?.hu) && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '3rem', 
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #e9ecef'
+          }}>
+            <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>No Sensor Data Available</h3>
+            <p style={{ color: '#6c757d' }}>
+              The selected device doesn't have temperature or humidity sensors, or no recent data is available.
+            </p>
+          </div>
+        )}
+      </main>
+    </div>
   );
-}
+};
+
+export default Home;

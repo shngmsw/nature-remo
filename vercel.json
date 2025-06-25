@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "env": {
+    "NATURE_REMO_ACCESS_TOKEN": "@nature_remo_access_token",
+    "NATURE_REMO_API_ENDPOINT": "@nature_remo_api_endpoint",
+    "DATA_REFRESH_INTERVAL": "@data_refresh_interval",
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key"
+  },
+  "functions": {
+    "src/pages/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
+} 
