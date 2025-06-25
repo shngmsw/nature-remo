@@ -56,11 +56,12 @@ type ChartData = {
 const Home = () => {
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('24');
   const [temperatureData, setTemperatureData] = useState<ChartData>({
     labels: [],
     datasets: [
       {
-        label: 'Temperature (°C)',
+        label: '温度 (°C)',
         data: [],
         borderColor: 'rgb(255, 99, 132)',
         backgroundColor: 'rgba(255, 99, 132, 0.5)',
@@ -71,7 +72,7 @@ const Home = () => {
     labels: [],
     datasets: [
       {
-        label: 'Humidity (%)',
+        label: '湿度 (%)',
         data: [],
         borderColor: 'rgb(54, 162, 235)',
         backgroundColor: 'rgba(54, 162, 235, 0.5)',
@@ -85,7 +86,7 @@ const Home = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/get-sensor-data?limit=30');
+      const res = await fetch(`/api/get-sensor-data?limit=100&hours=${selectedPeriod}`);
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Failed to fetch data');
@@ -121,7 +122,7 @@ const Home = () => {
           setTemperatureData({
             labels: tempHistory.map((d) => new Date(d.x as string)),
             datasets: [{
-              label: 'Temperature (°C)',
+              label: '温度 (°C)',
               data: tempHistory.map((d) => d.y as number),
               borderColor: 'rgb(255, 99, 132)',
               backgroundColor: 'rgba(255, 99, 132, 0.5)',
@@ -130,7 +131,7 @@ const Home = () => {
           setHumidityData({
             labels: humHistory.map((d) => new Date(d.x as string)),
             datasets: [{
-              label: 'Humidity (%)',
+              label: '湿度 (%)',
               data: humHistory.map((d) => d.y as number),
               borderColor: 'rgb(54, 162, 235)',
               backgroundColor: 'rgba(54, 162, 235, 0.5)',
@@ -151,7 +152,7 @@ const Home = () => {
     fetchData();
     const interval = setInterval(fetchData, 5 * 60 * 1000); // 5分ごとに更新
     return () => clearInterval(interval);
-  }, [selectedDevice]);
+  }, [selectedDevice, selectedPeriod]);
 
   const handleDeviceChange = (deviceId: string) => {
     setSelectedDevice(deviceId);
@@ -160,7 +161,7 @@ const Home = () => {
       labels: [],
       datasets: [
         {
-          label: 'Temperature (°C)',
+          label: '温度 (°C)',
           data: [],
           borderColor: 'rgb(255, 99, 132)',
           backgroundColor: 'rgba(255, 99, 132, 0.5)',
@@ -171,13 +172,22 @@ const Home = () => {
       labels: [],
       datasets: [
         {
-          label: 'Humidity (%)',
+          label: '湿度 (%)',
           data: [],
           borderColor: 'rgb(54, 162, 235)',
           backgroundColor: 'rgba(54, 162, 235, 0.5)',
         },
       ],
     });
+  };
+
+  const getPeriodText = (hours: string) => {
+    const hoursNum = parseInt(hours);
+    if (hoursNum >= 24) {
+      const days = hoursNum / 24;
+      return days === 1 ? '過去24時間' : `過去${days}日間`;
+    }
+    return `過去${hours}時間`;
   };
 
   const selectedDeviceData = devices.find(d => d.id === selectedDevice);
@@ -193,10 +203,10 @@ const Home = () => {
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem', color: '#333' }}>
-            🌡️ Nature Remo Monitor
+            🌡️ Nature Remo モニター
           </h1>
           <p style={{ color: '#666', fontSize: '1.1rem' }}>
-            Real-time temperature and humidity monitoring
+            リアルタイム温度・湿度監視システム
           </p>
           <Link href="/settings" style={{
             display: 'inline-block',
@@ -209,7 +219,7 @@ const Home = () => {
             fontSize: '0.9rem',
             transition: 'background-color 0.2s'
           }}>
-            ⚙️ Settings
+            ⚙️ 設定
           </Link>
         </div>
 
@@ -217,7 +227,7 @@ const Home = () => {
         {devices.length > 1 && (
           <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
             <label htmlFor="device-select" style={{ marginRight: '1rem', fontWeight: 'bold' }}>
-              Select Device:
+              デバイス選択:
             </label>
             <select
               id="device-select"
@@ -240,6 +250,33 @@ const Home = () => {
           </div>
         )}
 
+        {/* Period Selection */}
+        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+          <label htmlFor="period-select" style={{ marginRight: '1rem', fontWeight: 'bold' }}>
+            表示期間:
+          </label>
+          <select
+            id="period-select"
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value)}
+            style={{
+              padding: '0.5rem',
+              borderRadius: '4px',
+              border: '1px solid #ddd',
+              fontSize: '1rem',
+              minWidth: '150px'
+            }}
+          >
+            <option value="1">過去1時間</option>
+            <option value="6">過去6時間</option>
+            <option value="12">過去12時間</option>
+            <option value="24">過去24時間</option>
+            <option value="48">過去48時間</option>
+            <option value="168">過去7日間</option>
+            <option value="720">過去30日間</option>
+          </select>
+        </div>
+
         {/* Status Information */}
         <div style={{ 
           display: 'flex', 
@@ -252,7 +289,7 @@ const Home = () => {
           border: '1px solid #e9ecef'
         }}>
           <div>
-            <strong>Last updated:</strong> {lastUpdated || 'Never'}
+            <strong>最終更新:</strong> {lastUpdated || '未更新'}
           </div>
           <div>
             <button
@@ -268,7 +305,7 @@ const Home = () => {
                 opacity: isLoading ? 0.6 : 1
               }}
             >
-              {isLoading ? 'Loading...' : 'Refresh'}
+              {isLoading ? '読み込み中...' : '更新'}
             </button>
           </div>
         </div>
@@ -283,7 +320,7 @@ const Home = () => {
             marginBottom: '2rem',
             border: '1px solid #f5c6cb'
           }}>
-            <strong>Error:</strong> {error}
+            <strong>エラー:</strong> {error}
           </div>
         )}
 
@@ -303,7 +340,7 @@ const Home = () => {
                 border: '1px solid #ffeaa7',
                 textAlign: 'center'
               }}>
-                <h3 style={{ margin: '0 0 0.5rem 0', color: '#856404' }}>🌡️ Temperature</h3>
+                <h3 style={{ margin: '0 0 0.5rem 0', color: '#856404' }}>🌡️ 温度</h3>
                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#856404' }}>
                   {selectedDeviceData.newest_events.te.val}°C
                 </div>
@@ -317,7 +354,7 @@ const Home = () => {
                 border: '1px solid #bee5eb',
                 textAlign: 'center'
               }}>
-                <h3 style={{ margin: '0 0 0.5rem 0', color: '#0c5460' }}>💧 Humidity</h3>
+                <h3 style={{ margin: '0 0 0.5rem 0', color: '#0c5460' }}>💧 湿度</h3>
                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#0c5460' }}>
                   {selectedDeviceData.newest_events.hu.val}%
                 </div>
@@ -337,7 +374,7 @@ const Home = () => {
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               border: '1px solid #e9ecef'
             }}>
-              <h2 style={{ marginBottom: '1rem', color: '#333' }}>Temperature History</h2>
+              <h2 style={{ marginBottom: '1rem', color: '#333' }}>温度履歴</h2>
               <Line
                 data={temperatureData}
                 options={{
@@ -350,13 +387,13 @@ const Home = () => {
                       },
                       title: {
                         display: true,
-                        text: 'Time',
+                        text: '時間',
                       },
                     },
                     y: {
                       title: {
                         display: true,
-                        text: 'Temperature (°C)',
+                        text: '温度 (°C)',
                       },
                     },
                   },
@@ -367,7 +404,7 @@ const Home = () => {
                     },
                     title: {
                       display: true,
-                      text: 'Temperature (Last 30 entries)',
+                      text: `温度履歴 (${getPeriodText(selectedPeriod)})`,
                     },
                   },
                 }}
@@ -384,7 +421,7 @@ const Home = () => {
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               border: '1px solid #e9ecef'
             }}>
-              <h2 style={{ marginBottom: '1rem', color: '#333' }}>Humidity History</h2>
+              <h2 style={{ marginBottom: '1rem', color: '#333' }}>湿度履歴</h2>
               <Line
                 data={humidityData}
                 options={{
@@ -397,13 +434,13 @@ const Home = () => {
                       },
                       title: {
                         display: true,
-                        text: 'Time',
+                        text: '時間',
                       },
                     },
                     y: {
                       title: {
                         display: true,
-                        text: 'Humidity (%)',
+                        text: '湿度 (%)',
                       },
                       min: 0,
                       max: 100,
@@ -416,7 +453,7 @@ const Home = () => {
                     },
                     title: {
                       display: true,
-                      text: 'Humidity (Last 30 entries)',
+                      text: `湿度履歴 (${getPeriodText(selectedPeriod)})`,
                     },
                   },
                 }}
@@ -434,9 +471,9 @@ const Home = () => {
             borderRadius: '8px',
             border: '1px solid #e9ecef'
           }}>
-            <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>No Sensor Data Available</h3>
+            <h3 style={{ color: '#6c757d', marginBottom: '1rem' }}>センサーデータがありません</h3>
             <p style={{ color: '#6c757d' }}>
-              The selected device doesn't have temperature or humidity sensors, or no recent data is available.
+              選択されたデバイスに温度・湿度センサーがないか、最近のデータが利用できません。
             </p>
           </div>
         )}
