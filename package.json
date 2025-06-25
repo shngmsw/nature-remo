@@ -1,5 +1,5 @@
 {
-  "name": "nature-remo-dashboard",
+  "name": "nature-remo-sensor-monitor",
   "version": "0.1.0",
   "private": true,
   "description": "Real-time temperature and humidity monitoring dashboard for Nature Remo devices",
