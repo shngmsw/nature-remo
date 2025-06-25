@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import Link from 'next/link';
+import { SensorData } from '../lib/supabase';
 
 ChartJS.register(
   CategoryScale,
@@ -84,88 +85,65 @@ const Home = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/temperature');
+      const res = await fetch('/api/get-sensor-data?limit=30');
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Failed to fetch data');
       }
-      const data: Device[] = await res.json();
-      
-      setDevices(data);
-      
-      if (data.length > 0 && !selectedDevice) {
-        setSelectedDevice(data[0].id);
+      const data: SensorData[] = await res.json();
+      // デバイスごとにグループ化
+      const grouped = data.reduce<Record<string, SensorData[]>>((acc, cur) => {
+        if (!acc[cur.device_id]) acc[cur.device_id] = [];
+        acc[cur.device_id].push(cur);
+        return acc;
+      }, {});
+      // デバイスリストを作成
+      const deviceList = Object.keys(grouped).map((id: string) => ({
+        id,
+        name: grouped[id][0].device_name,
+        newest_events: {
+          te: grouped[id][0].temperature !== undefined && grouped[id][0].created_at ? { val: grouped[id][0].temperature, created_at: grouped[id][0].created_at as string } : undefined,
+          hu: grouped[id][0].humidity !== undefined && grouped[id][0].created_at ? { val: grouped[id][0].humidity, created_at: grouped[id][0].created_at as string } : undefined,
+          il: grouped[id][0].illuminance !== undefined && grouped[id][0].created_at ? { val: grouped[id][0].illuminance, created_at: grouped[id][0].created_at as string } : undefined,
+          mo: grouped[id][0].movement !== undefined && grouped[id][0].created_at ? { val: grouped[id][0].movement, created_at: grouped[id][0].created_at as string } : undefined,
+        }
+      }));
+      setDevices(deviceList);
+      if (deviceList.length > 0 && !selectedDevice) {
+        setSelectedDevice(deviceList[0].id);
       }
-
       if (selectedDevice) {
-        const device = data.find(d => d.id === selectedDevice);
+        const device = deviceList.find((d: Device) => d.id === selectedDevice);
         if (device) {
-          updateChartData(device);
+          // グラフ用データをSupabaseの履歴から生成
+          const tempHistory = grouped[selectedDevice].map((d: SensorData) => ({ x: d.created_at, y: d.temperature })).filter((d) => d.x && d.y !== undefined);
+          const humHistory = grouped[selectedDevice].map((d: SensorData) => ({ x: d.created_at, y: d.humidity })).filter((d) => d.x && d.y !== undefined);
+          setTemperatureData({
+            labels: tempHistory.map((d) => new Date(d.x as string)),
+            datasets: [{
+              label: 'Temperature (°C)',
+              data: tempHistory.map((d) => d.y as number),
+              borderColor: 'rgb(255, 99, 132)',
+              backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            }],
+          });
+          setHumidityData({
+            labels: humHistory.map((d) => new Date(d.x as string)),
+            datasets: [{
+              label: 'Humidity (%)',
+              data: humHistory.map((d) => d.y as number),
+              borderColor: 'rgb(54, 162, 235)',
+              backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            }],
+          });
         }
       }
-
       setLastUpdated(new Date().toLocaleTimeString());
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const updateChartData = (device: Device) => {
-    const time = new Date();
-    
-    // Temperature data update
-    if (device.newest_events?.te) {
-      const { val } = device.newest_events.te;
-      setTemperatureData((prevData) => {
-        const newLabels = [...prevData.labels, time];
-        const newData = [...prevData.datasets[0].data, val];
-
-        // グラフの表示件数を直近30件に制限
-        if (newLabels.length > 30) {
-          newLabels.shift();
-          newData.shift();
-        }
-
-        return {
-          ...prevData,
-          labels: newLabels,
-          datasets: [
-            {
-              ...prevData.datasets[0],
-              data: newData,
-            },
-          ],
-        };
-      });
-    }
-
-    // Humidity data update
-    if (device.newest_events?.hu) {
-      const { val } = device.newest_events.hu;
-      setHumidityData((prevData) => {
-        const newLabels = [...prevData.labels, time];
-        const newData = [...prevData.datasets[0].data, val];
-
-        // グラフの表示件数を直近30件に制限
-        if (newLabels.length > 30) {
-          newLabels.shift();
-          newData.shift();
-        }
-
-        return {
-          ...prevData,
-          labels: newLabels,
-          datasets: [
-            {
-              ...prevData.datasets[0],
-              data: newData,
-            },
-          ],
-        };
-      });
     }
   };
 
