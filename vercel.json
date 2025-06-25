@@ -4,12 +4,5 @@
     "src/pages/api/**/*.ts": {
       "maxDuration": 30
     }
-  },
-  "crons": [
-    {
-      "path": "/api/save-sensor-data",
-      "schedule": "*/5 * * * *",
-      "method": "POST"
-    }
-  ]
+  }
 } 
