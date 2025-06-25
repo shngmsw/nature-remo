@@ -1,11 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
   "env": {
     "NATURE_REMO_ACCESS_TOKEN": "@nature_remo_access_token",
     "NATURE_REMO_API_ENDPOINT": "@nature_remo_api_endpoint",
