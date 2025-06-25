@@ -1,16 +1,18 @@
 {
-  "name": "nature-remo",
+  "name": "nature-remo-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Real-time temperature and humidity monitoring for Nature Remo devices",
+  "description": "Real-time temperature and humidity monitoring dashboard for Nature Remo devices",
   "keywords": [
     "nature-remo",
     "iot",
     "temperature",
     "humidity",
     "monitoring",
+    "dashboard",
     "nextjs",
-    "typescript"
+    "typescript",
+    "supabase"
   ],
   "author": "Your Name",
   "license": "MIT",
