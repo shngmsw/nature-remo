@@ -2,6 +2,8 @@
 
 A real-time temperature and humidity monitoring application for Nature Remo devices built with Next.js, TypeScript, and Chart.js.
 
+**Last updated:** $(date) - Auto-deploy test
+
 ## ✨ Features
 
 - **Real-time Monitoring**: Live temperature and humidity data from Nature Remo devices
