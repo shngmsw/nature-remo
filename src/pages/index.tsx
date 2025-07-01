@@ -86,7 +86,9 @@ const Home = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/get-sensor-data?limit=100&hours=${selectedPeriod}`);
+      const hoursNum = parseInt(selectedPeriod);
+      const limit = Math.max(hoursNum * 12, 100); // assume data every 5 minutes
+      const res = await fetch(`/api/get-sensor-data?limit=${limit}&hours=${selectedPeriod}`);
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Failed to fetch data');
@@ -384,6 +386,10 @@ const Home = () => {
                       time: {
                         unit: 'minute',
                         tooltipFormat: 'PPpp',
+                        displayFormats: {
+                          minute: 'MM/dd HH:mm',
+                          hour: 'MM/dd HH:mm',
+                        },
                       },
                       title: {
                         display: true,
@@ -431,6 +437,10 @@ const Home = () => {
                       time: {
                         unit: 'minute',
                         tooltipFormat: 'PPpp',
+                        displayFormats: {
+                          minute: 'MM/dd HH:mm',
+                          hour: 'MM/dd HH:mm',
+                        },
                       },
                       title: {
                         display: true,
